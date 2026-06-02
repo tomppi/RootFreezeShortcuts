@@ -1,6 +1,7 @@
 package com.tomppi.freezeshortcuts;
 
 import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -294,7 +295,13 @@ public class MainActivity extends Activity {
                     .setIcon(Icon.createWithResource(this, R.drawable.ic_launcher_foreground))
                     .setIntent(shortcutIntent)
                     .build();
-            sm.requestPinShortcut(shortcut, null);
+            PendingIntent callback = PendingIntent.getBroadcast(
+                    this,
+                    packageName.hashCode(),
+                    new Intent("com.tomppi.freezeshortcuts.PINNED"),
+                    PendingIntent.FLAG_IMMUTABLE
+            );
+            sm.requestPinShortcut(shortcut, callback.getIntentSender());
             Toast.makeText(this, "Shortcut request sent to launcher.", Toast.LENGTH_SHORT).show();
         } else {
             Intent add = new Intent("com.android.launcher.action.INSTALL_SHORTCUT");

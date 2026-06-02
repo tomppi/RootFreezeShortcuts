@@ -64,11 +64,6 @@ public class ProxyActivity extends Activity {
         }
 
         SystemClock.sleep(900);
-        Intent launch = AppUtils.buildLaunchIntent(this, packageName, true);
-        if (launch == null) {
-            fail("Unfroze the package, but no launcher activity was found for " + packageName);
-            return;
-        }
 
         SharedPreferences prefs = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
         boolean auto = prefs.getBoolean(MainActivity.PREF_AUTO_REFREEZE, true);
@@ -81,12 +76,29 @@ public class ProxyActivity extends Activity {
         }
 
         setStatus("Launching " + label + "…");
+
+        // Primary path: launch by package through root monkey. This avoids stale/disabled
+        // launcher aliases like com.instagram.android.IntentLauncher.
+        RootShell.Result rootLaunch = RootShell.launchPackage(packageName);
+        if (RootShell.launchLooksOk(rootLaunch)) {
+            runOnUiThread(this::finishAndRemoveTaskCompat);
+            return;
+        }
+
+        // Fallback path: now that the package is enabled, ask PackageManager for the
+        // currently enabled launch intent only. Do not include disabled components here.
+        Intent launch = AppUtils.buildLaunchIntent(this, packageName, false);
+        if (launch == null) {
+            fail("Unfroze the package, but launch failed. Root launch output:\n" + rootLaunch.output.trim());
+            return;
+        }
+
         runOnUiThread(() -> {
             try {
                 startActivity(launch);
                 finishAndRemoveTaskCompat();
             } catch (Exception e) {
-                fail("Launch failed: " + e.getMessage());
+                fail("Launch failed after unfreeze: " + e.getMessage() + "\n\nRoot launch output:\n" + rootLaunch.output.trim());
             }
         });
     }

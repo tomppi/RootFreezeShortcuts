@@ -59,6 +59,18 @@ public final class AppUtils {
     public static Intent buildLaunchIntent(Context context, String packageName, boolean includeDisabled) {
         if (!RootShell.isValidPackageName(packageName)) return null;
         PackageManager pm = context.getPackageManager();
+
+        // For actual launches, prefer Android's enabled-only launcher resolution.
+        // Some apps expose disabled/stale launcher aliases; using MATCH_DISABLED_COMPONENTS
+        // can pick those and produce ActivityNotFoundException after the package is unfrozen.
+        if (!includeDisabled) {
+            Intent direct = pm.getLaunchIntentForPackage(packageName);
+            if (direct != null) {
+                direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                return direct;
+            }
+        }
+
         Intent query = new Intent(Intent.ACTION_MAIN);
         query.addCategory(Intent.CATEGORY_LAUNCHER);
         query.setPackage(packageName);
@@ -70,13 +82,23 @@ public final class AppUtils {
             matches = pm.queryIntentActivities(query, flags);
         }
         if (matches == null || matches.isEmpty()) {
-            return pm.getLaunchIntentForPackage(packageName);
+            return null;
         }
-        ResolveInfo ri = matches.get(0);
-        if (ri.activityInfo == null) return null;
+
+        ResolveInfo chosen = null;
+        for (ResolveInfo ri : matches) {
+            if (ri.activityInfo == null) continue;
+            boolean appEnabled = ri.activityInfo.applicationInfo == null || ri.activityInfo.applicationInfo.enabled;
+            if (!includeDisabled && (!ri.activityInfo.enabled || !appEnabled)) continue;
+            chosen = ri;
+            break;
+        }
+        if (chosen == null) chosen = matches.get(0);
+        if (chosen.activityInfo == null) return null;
+
         Intent launch = new Intent(Intent.ACTION_MAIN);
         launch.addCategory(Intent.CATEGORY_LAUNCHER);
-        launch.setComponent(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+        launch.setComponent(new ComponentName(chosen.activityInfo.packageName, chosen.activityInfo.name));
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         return launch;
     }

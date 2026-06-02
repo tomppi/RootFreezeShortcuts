@@ -61,6 +61,22 @@ public final class RootShell {
         return fallback.ok() ? fallback : r;
     }
 
+    public static Result launchPackage(String packageName) {
+        if (!isValidPackageName(packageName)) {
+            return new Result(2, "Refusing invalid package name: " + packageName, false);
+        }
+        return run("monkey -p " + packageName + " -c android.intent.category.LAUNCHER 1", 20000);
+    }
+
+    public static boolean launchLooksOk(Result result) {
+        if (!result.ok()) return false;
+        String out = result.output.toLowerCase(Locale.ROOT);
+        return !out.contains("no activities found")
+                && !out.contains("monkey aborted")
+                && !out.contains("permission denied")
+                && !out.contains("error:");
+    }
+
     public static Result run(String command, long timeoutMs) {
         Process process = null;
         StringBuilder output = new StringBuilder();

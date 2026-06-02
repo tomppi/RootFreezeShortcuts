@@ -3,7 +3,7 @@
 A small root-only Android launcher helper. It creates proxy shortcuts for apps. When you tap a proxy shortcut, this app:
 
 1. runs `pm enable --user 0 <package>` as root,
-2. launches the target app,
+2. launches the target app by package name using root `monkey` first, then falls back to Android's enabled launcher intent,
 3. watches the foreground app through `dumpsys`,
 4. runs `pm disable-user --user 0 <package>` after the target is no longer foreground for the configured grace period.
 
@@ -64,3 +64,4 @@ app/build/outputs/apk/debug/app-debug.apk
 - Uses pinned shortcuts on Android 8+.
 - Uses a foreground service only while a launched target is being watched.
 - Uses package-name validation before running root package-manager commands.
+- Launches by package name instead of storing an explicit launcher activity. This avoids failures from stale/disabled aliases such as `com.instagram.android.IntentLauncher`.
